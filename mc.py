@@ -85,15 +85,16 @@ class MuChong(object):
             'refer': '',
             'username': self.username,
             'password': self.password,
-            'cookietime': '31536000',
+            'cookietime': '2592000',
+            'rule': 'rule',
             'loginsubmit': '提交'
         }
 
         resp = self.session.post(url, data=postBody, timeout=10)
 
         pattern = re.compile(
-            r'问题: (?P<A>\d+)'
-            r'(?P<ot>\D+)'
+            r'问题[^0-9]*(?P<A>\d+)'
+            r'(?P<ot>\D+?)'
             r'(?P<B>\d+)等于多少\?.*?'
             r'name="post_sec_hash" value="(?P<secHash>\w+)"',
             re.S
@@ -110,20 +111,25 @@ class MuChong(object):
         ot = matches.group('ot').strip()
         secHash = matches.group('secHash')
 
-        if ot == '加':
-            result = numberA + numberB
-        elif ot == '减':
+        # 处理加减乘除运算题 (兼容全角/半角运算符)
+        if '减' in ot:
             result = numberA - numberB
-        elif ot == '乘以':
+        elif '乘' in ot:
             result = numberA * numberB
-        else:
+        elif '除' in ot:
             result = numberA / numberB
+            # 整除时以整数提交, 避免 "22.0" 被判别错误
+            if float(result).is_integer():
+                result = int(result)
+        else:  # 加 或未识别的运算符
+            result = numberA + numberB
 
         postBody = {
             'formhash': formHash,
             'post_sec_code': result,
             'post_sec_hash': secHash,
             'username': self.username,
+            'password': self.password,
             'loginsubmit': '提交'
         }
 
@@ -225,8 +231,8 @@ def checked(content):
 
 if __name__ == '__main__':
     # 账号密码由 GitHub Actions 的 secret 通过环境变量注入
-    username = os.environ.get('USERNAME', '')
-    password = os.environ.get('PASSWORD', '')
+    username = os.environ.get('USERNAME', '***REDACTED***')
+    password = os.environ.get('PASSWORD', '***REDACTED***')
 
     if not username or not password:
         print('错误: 未设置 USERNAME / PASSWORD 环境变量', file=sys.stderr)
