@@ -23,10 +23,6 @@ class Log:
             self.src = ''
 
     def write(self, content):
-        """
-        覆盖写入日志文件。
-        不保留之前的日志内容，同时更新 self.src。
-        """
         self.src = content
 
         with open(self.filename, 'w', encoding='utf-8') as f:
@@ -97,7 +93,7 @@ class MuChong(object):
         )
 
         pattern = re.compile(
-            r'问题：(?P<A>\d+)'
+            r'问题: (?P<A>\d+)'
             r'(?P<ot>\D+)'
             r'(?P<B>\d+)等于多少\?.*?'
             r'name="post_sec_hash" value="(?P<secHash>\w+)"',
@@ -159,29 +155,24 @@ class MuChong(object):
                 ).text
 
                 print('今天已经登录！')
-                print('目前的金币数是：%s.' % coinsCount)
+                print('目前的金币数是: %s.' % coinsCount)
 
-                log_content = (
-                    '当前时间为：%s. '
-                    '今天已经登录，不用再重复登录了！\n'
-                    '目前的金币数是：%s.\n'
-                    % (datetime.now(), coinsCount)
+                content = (
+                    '当前时间为: %s.今天已经登录, 不用再重复登录了! 目前的金币数是: %s.' % (datetime.now(), coinsCount)
                 )
 
                 # 覆盖原有日志
-                self.log.write(log_content)
+                self.log.write(content)
 
             elif '您还没有登录' in resp.text:
-                print('登录异常，没有成功登录。')
+                print('登录异常, 没有成功登录.')
 
-                log_content = (
-                    '当前时间为：%s. '
-                    '登录异常，没有成功登录。\n'
-                    % datetime.now()
+                content = (
+                    '当前时间为: %s.登录异常, 没有成功登录.' % datetime.now()
                 )
 
                 # 覆盖原有日志
-                self.log.write(log_content)
+                self.log.write(content)
 
             else:
                 creditFormhash = BeautifulSoup(
@@ -227,41 +218,32 @@ class MuChong(object):
                     }
                 ).text
 
-                print('今天领取了金币数为：%s' % coinsNumber)
-                print('目前的总金币数为：%s' % coins)
+                print('今天领取了金币数为: %s' % coinsNumber)
+                print('目前的总金币数为: %s' % coins)
 
-                log_content = (
-                    '本次登录成功，具体时间为：%s.\n'
-                    '得到的金币数为：%s.\n'
-                    '目前的总金币数为：%s.\n'
-                    % (
-                        datetime.now(),
-                        coinsNumber,
-                        coins
-                    )
+                content = (
+                    '本次登录成功, 具体时间为: %s. 得到的金币数为: %s. 目前的总金币数为: %s.' % (datetime.now(), coinsNumber, coins)
                 )
 
                 # 覆盖原有日志
-                self.log.write(log_content)
+                self.log.write(content)
 
-        except Exception as e:
-            print('签到失败', e)
+        except Exception as err:
+            print('签到失败', err)
 
-            log_content = (
-                '签到失败，具体时间为：%s.\n'
-                '错误信息：%s\n'
-                % (datetime.now(), e)
+            content = (
+                '签到失败, 具体时间为: %s. 错误信息: %s.' % (datetime.now(), e)
             )
 
             # 覆盖原有日志
-            self.log.write(log_content)
+            self.log.write(content)
 
 
 if __name__ == '__main__':
-    my_muchong = MuChong(
+    spider = MuChong(
         MUCHONG_USERNAME,
         MUCHONG_PASSWORD
     )
 
-    my_muchong.login()
-    my_muchong.checkIn()
+    spider.login()
+    spider.checkIn()
