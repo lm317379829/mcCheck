@@ -3,11 +3,19 @@ import re
 import sys
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 file = './log.txt'
 LoUrl = 'https://muchong.com/bbs/logging.php?action=login'
 CrUrl = 'https://muchong.com/bbs/memcp.php?action=getcredit'
+
+# 北京时间固定为 UTC+8 (无夏令时), 不依赖系统时区
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+
+def nowTime():
+    """当前北京时间字符串, 精确到秒 (如 2026-09-24 21:30:00)"""
+    return datetime.now(BEIJING_TZ).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def extractCoinText(html, style):
@@ -149,7 +157,7 @@ class MuChong(object):
                 print('目前的金币数是: %s.' % coinsCount)
 
                 content = (
-                    '当前时间为: %s.今天已经登录, 不用再重复登录了! 目前的金币数是: %s.' % (datetime.now(), coinsCount)
+                    '当前时间为: %s.今天已经登录, 不用再重复登录了! 目前的金币数是: %s.' % (nowTime(), coinsCount)
                 )
 
                 # 覆盖原有日志
@@ -160,7 +168,7 @@ class MuChong(object):
                 print('登录异常, 没有成功登录.')
 
                 content = (
-                    '当前时间为: %s.登录异常, 没有成功登录.' % datetime.now()
+                    '当前时间为: %s.登录异常, 没有成功登录.' % nowTime()
                 )
 
                 # 覆盖原有日志
@@ -193,7 +201,7 @@ class MuChong(object):
                 print('目前的总金币数为: %s' % coins)
 
                 content = (
-                    '本次登录成功, 具体时间为: %s. 得到的金币数为: %s. 目前的总金币数为: %s.' % (datetime.now(), coinsNumber, coins)
+                    '本次登录成功, 具体时间为: %s. 得到的金币数为: %s. 目前的总金币数为: %s.' % (nowTime(), coinsNumber, coins)
                 )
 
                 # 覆盖原有日志
@@ -204,7 +212,7 @@ class MuChong(object):
             print('签到失败', err)
 
             content = (
-                '签到失败, 具体时间为: %s. 错误信息: %s.' % (datetime.now(), err)
+                '签到失败, 具体时间为: %s. 错误信息: %s.' % (nowTime(), err)
             )
 
             # 覆盖原有日志
@@ -226,7 +234,7 @@ def checked(content):
     if not matches:
         return False
 
-    return matches.group(1) == datetime.now().strftime('%Y-%m-%d')
+    return matches.group(1) == datetime.now(BEIJING_TZ).strftime('%Y-%m-%d')
 
 
 if __name__ == '__main__':
