@@ -1,0 +1,49 @@
+name: 每日签到
+
+on:
+  schedule:
+    # 每小时运行一次 (UTC 时区, GitHub Actions cron 使用 UTC)
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  # 允许把更新后的 log.txt 推回仓库
+  contents: write
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: 运行签到脚本
+        env:
+          # 从仓库 secret 读取账号密码
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: python mc.py
+
+      # 脚本成功 (退出码 0, 即正常签到) 时才同步 log.txt
+      - name: 同步 log.txt 到仓库
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add log.txt
+
+          if git diff --cached --quiet; then
+            echo "log.txt 没有变化, 跳过提交"
+          else
+            git commit -m "chore: 更新签到日志"
+            git push
+          fi
