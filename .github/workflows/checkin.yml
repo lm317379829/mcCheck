@@ -2,13 +2,16 @@ name: 每日签到
 
 on:
   schedule:
-    # 每小时运行一次 (UTC 时区, GitHub Actions cron 使用 UTC)
-    - cron: '0 * * * *'
+    # 每小时运行两次 (UTC): 第 5 与 35 分钟。避开整点高峰(官方文档: 每小时
+    # 开始时负载最高, schedule 可能被推迟甚至丢队), 两次错开可互相兜底
+    - cron: '5,35 * * * *'
   workflow_dispatch: {}
 
 permissions:
   # 允许把更新后的 log.txt 推回仓库
   contents: write
+  # 删除旧的 workflow 运行记录需要
+  actions: write
 
 jobs:
   checkin:
@@ -47,3 +50,17 @@ jobs:
             git commit -m "chore: 更新签到日志"
             git push
           fi
+
+      # 只保留最近 6 次运行, 多余的自动删除 (即使本次签到失败也执行)
+      - name: 清理旧的运行记录 (只保留最近 6 个)
+        if: always()
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          # 只看次数不看天数: retain_days=0 时所有已完成运行都作为候选
+          retain_days: 0
+          # 保留最近 6 个, 其余全部删除
+          keep_minimum_runs: 6
+          # 只清理本项目的这个 workflow
+          delete_workflow_pattern: checkin.yml
