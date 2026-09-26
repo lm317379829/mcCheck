@@ -35,6 +35,9 @@ jobs:
           # 从仓库 secret 读取账号密码
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
+          # Telegram 通知 (token 与 接收 chat_id)
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: python mc.py
 
       # 脚本成功 (退出码 0, 即正常签到) 时才同步 log.txt

@@ -12,6 +12,9 @@ CrUrl = 'https://muchong.com/bbs/memcp.php?action=getcredit'
 # 北京时间固定为 UTC+8 (无夏令时), 不依赖系统时区
 BEIJING_TZ = timezone(timedelta(hours=8))
 
+# Telegram Bot API (token 从环境变量 TELEGRAM_BOT_TOKEN 注入, 不写死在代码里)
+TELEGRAM_API = 'https://api.telegram.org/bot{token}/sendMessage'
+
 
 def nowTime():
     """当前北京时间字符串, 精确到秒 (如 2026-09-24 21:30:00)"""
@@ -237,10 +240,63 @@ def checked(content):
     return matches.group(1) == datetime.now(BEIJING_TZ).strftime('%Y-%m-%d')
 
 
+def buildTelegramMsg(log_content):
+    """根据日志内容构造美化的 Telegram 消息 (HTML 格式)"""
+    from html import escape
+
+    time_m = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', log_content)
+    time_str = escape(time_m.group(1)) if time_m else ''
+
+    gain_m = re.search(r'得到的金币数为: ([0-9]+(?:\.[0-9]+)?)', log_content)
+    extra_m = re.search(r'目前的总金币数(?:为|是): ([0-9]+(?:\.[0-9]+)?)', log_content)
+    if extra_m is None:
+        # 站点提示"今天已经登录"时, 只显示当前金币
+        extra_m = re.search(r'目前的金币数是: ([0-9]+(?:\.[0-9]+)?)', log_content)
+
+    gain = escape(gain_m.group(1)) if gain_m else ''
+    total = escape(extra_m.group(1)) if extra_m else ''
+
+    title = '<b>✅ 小木虫签到成功</b>' if '本次登录成功' in log_content else '<b>✅ 小木虫今日已签到</b>'
+
+    lines = [title, '']
+    if time_str:
+        lines.append('🕓 时间：%s（北京时间）' % time_str)
+    if gain:
+        lines.append('💰 获得金币：<b>%s</b>' % gain)
+    if total:
+        lines.append('🏦 当前总金币：<b>%s</b>' % total)
+    return '\n'.join(lines)
+
+
+def sendTelegram(text):
+    """通过 Telegram Bot API 推送消息; 失败仅告警, 不影响签到结果"""
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    chatId = os.environ.get('TELEGRAM_CHAT_ID', '')
+
+    if not token or not chatId:
+        print('未配置 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID, 跳过 Telegram 通知', file=sys.stderr)
+        return
+
+    try:
+        requests.post(
+            TELEGRAM_API.format(token=token),
+            data={
+                'chat_id': chatId,
+                'text': text,
+                'parse_mode': 'HTML',
+            },
+            timeout=10
+        ).raise_for_status()
+        print('已推送到 Telegram.')
+    except Exception as err:
+        # token 等敏感信息不出现在报错中
+        print('Telegram 推送失败: %s' % err, file=sys.stderr)
+
+
 if __name__ == '__main__':
-    # 账号密码由 GitHub Actions 的 secret 通过环境变量注入
-    username = os.environ.get('USERNAME', '***REDACTED***')
-    password = os.environ.get('PASSWORD', '***REDACTED***')
+    # 账号密码必须由 GitHub Actions 的 secret 通过环境变量注入, 禁止写死在代码里
+    username = os.environ.get('USERNAME', '')
+    password = os.environ.get('PASSWORD', '')
 
     if not username or not password:
         print('错误: 未设置 USERNAME / PASSWORD 环境变量', file=sys.stderr)
@@ -261,4 +317,6 @@ if __name__ == '__main__':
         print('签到未成功.', file=sys.stderr)
         sys.exit(1)
 
+    # 签到成功, 读取最新日志并推送美化后的 Telegram 通知
+    sendTelegram(buildTelegramMsg(Log().src))
     print('签到成功.')
